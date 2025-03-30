@@ -1,11 +1,4 @@
-document.addEventListener('DOMContentLoaded', 
-function() {
-const downloadBtn = document.querySelector('.spotbtn'); 
-const spotifyInput = document.getElementById('spotifyDownloader'); 
-const resultBox = document.getElementById('result'); 
-const trackInfo = document.getElementById('track-info'); 
-const pasteBtn = document.querySelector('.paste-btn'); 
-const clearBtn = document.querySelector('.clear-btn');
+document.addEventListener('DOMContentLoaded', function() { const downloadBtn = document.querySelector('.spotbtn'); const spotifyInput = document.getElementById('spotifyDownloader'); const resultBox = document.getElementById('result'); const trackInfo = document.getElementById('track-info'); const pasteBtn = document.querySelector('.paste-btn'); const clearBtn = document.querySelector('.clear-btn');
 
 pasteBtn.addEventListener('click', async function() {
     try {
@@ -42,64 +35,55 @@ downloadBtn.addEventListener('click', async function() {
         return;
     }
 
-    try {
-        showResult('Sedang memproses...', 'loading');
-        trackInfo.style.display = 'none';
-        
-        let response = await fetch(`https://spotifydl.xbotzlauncher.biz.id/api/spotify/download?url=${encodeURIComponent(url)}`);
-        let data = await response.json();
-
-        if (data.status && data.code === 200) {
-            showTrackInfo(data.result);
-        } else {
-            console.warn('API utama gagal, mencoba API cadangan...');
-            await fetchBackupAPIs(url);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showResult('Koneksi error: ' + error.message, 'error');
-    }
+    showResult('Sedang memproses...', 'loading');
+    trackInfo.style.display = 'none';
+    
+    await fetchWithFallback(url);
 });
 
-async function fetchBackupAPIs(url) {
-    try {
-        let response = await fetch(`https://spotifyapi.caliphdev.com/api/info/track?url=${encodeURIComponent(url)}`);
-        let data = await response.json();
-        
-        if (data.title) {
-            showTrackInfo({
-                metadata: {
-                    title: data.title,
-                    artist: data.artist,
-                    album: data.album,
-                    cover: data.thumbnail
-                },
-                download: data.url
-            });
-            return;
+async function fetchWithFallback(url) {
+    const apis = [
+        `https://spotifydl.xbotzlauncher.biz.id/api/spotify/download?url=${encodeURIComponent(url)}`,
+        `https://spotifyapi.caliphdev.com/api/info/track?url=${encodeURIComponent(url)}`,
+        `https://api.suraweb.online/download/spotify?url=${encodeURIComponent(url)}`
+    ];
+    
+    for (let api of apis) {
+        try {
+            let response = await fetch(api);
+            if (!response.ok) throw new Error('Response not OK');
+            let data = await response.json();
+            
+            if (data.status && data.code === 200) {
+                showTrackInfo(data.result);
+                return;
+            } else if (data.title) {
+                showTrackInfo({
+                    metadata: {
+                        title: data.title,
+                        artist: data.artist,
+                        album: data.album || '-',
+                        cover: data.thumbnail
+                    },
+                    download: data.url
+                });
+                return;
+            } else if (data.status && data.data) {
+                showTrackInfo({
+                    metadata: {
+                        title: data.data.title,
+                        artist: data.data.artist,
+                        cover: data.data.cover
+                    },
+                    download: data.data.download
+                });
+                return;
+            }
+        } catch (error) {
+            console.warn(`API gagal: ${api}, mencoba API berikutnya...`);
         }
-    } catch (error) {
-        console.warn('API cadangan pertama gagal, mencoba API lain...');
     }
-
-    try {
-        let response = await fetch(`https://api.suraweb.online/download/spotify?url=${encodeURIComponent(url)}`);
-        let data = await response.json();
-        
-        if (data.status) {
-            showTrackInfo({
-                metadata: {
-                    title: data.data.title,
-                    artist: data.data.artist,
-                    cover: data.data.cover
-                },
-                download: data.data.download
-            });
-            return;
-        }
-    } catch (error) {
-        showResult('Gagal memproses dari semua API', 'error');
-    }
+    showResult('Gagal memproses dari semua API', 'error');
 }
 
 function isValidSpotifyUrl(url) {
