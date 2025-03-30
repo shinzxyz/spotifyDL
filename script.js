@@ -55,28 +55,13 @@ async function fetchWithFallback(url) {
             let data = await response.json();
             
             if (data.status && data.code === 200) {
-                showTrackInfo(data.result);
+                startDownload(data.result.download);
                 return;
-            } else if (data.title) {
-                showTrackInfo({
-                    metadata: {
-                        title: data.title,
-                        artist: data.artist,
-                        album: data.album || '-',
-                        cover: data.thumbnail
-                    },
-                    download: data.url
-                });
+            } else if (data.title && data.preview_mp3) {
+                startDownload(data.preview_mp3);
                 return;
-            } else if (data.status && data.data) {
-                showTrackInfo({
-                    metadata: {
-                        title: data.data.title,
-                        artist: data.data.artist,
-                        cover: data.data.cover
-                    },
-                    download: data.data.download
-                });
+            } else if (data.status && data.data && data.data.download) {
+                startDownload(data.data.download);
                 return;
             }
         } catch (error) {
@@ -91,15 +76,14 @@ function isValidSpotifyUrl(url) {
     return pattern.test(url);
 }
 
-function showTrackInfo(trackData) {
-    resultBox.style.display = 'none';
-    trackInfo.style.display = 'flex';
-    
-    document.getElementById('track-title').textContent = trackData.metadata.title;
-    document.getElementById('track-artist').textContent = trackData.metadata.artist;
-    document.getElementById('track-album').textContent = trackData.metadata.album || '-';
-    document.getElementById('track-cover').src = trackData.metadata.cover;
-    document.getElementById('download-link').href = trackData.download;
+function startDownload(url) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showResult('Download berhasil!', 'success');
 }
 
 function showResult(message, type) {
